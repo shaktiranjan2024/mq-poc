@@ -1,2 +1,0 @@
-# mq-poc
-mq-poc
