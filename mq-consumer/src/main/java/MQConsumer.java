@@ -2,7 +2,7 @@ import com.ibm.mq.*;
 import com.ibm.mq.constants.CMQC;
 import java.util.Hashtable;
 
-public class MQProducer {
+public class MQConsumer {
 
     static final String HOST = "localhost";
     static final int PORT = 1414;
@@ -26,19 +26,33 @@ public class MQProducer {
             qMgr = new MQQueueManager(QUEUE_MANAGER, props);
             System.out.println("✅ Connected: " + qMgr.getName());
 
-            queue = qMgr.accessQueue(QUEUE_NAME, CMQC.MQOO_OUTPUT);
+            queue = qMgr.accessQueue(QUEUE_NAME, CMQC.MQOO_INPUT_SHARED);
 
-            String text = args.length > 0 ? args[0] : "Hello from MQProducer!";
-            MQMessage message = new MQMessage();
-            message.writeString(text);
+            System.out.println("Waiting for messages... (polls every 3 sec)");
 
-            queue.put(message, new MQPutMessageOptions());
-            System.out.println("✅ Message sent: " + text);
+            while (true) {
+                try {
+                    MQMessage message = new MQMessage();
+                    MQGetMessageOptions gmo = new MQGetMessageOptions();
+                    gmo.waitInterval = 3000; // wait 3 seconds for a message
+                    gmo.options = CMQC.MQGMO_WAIT;
+
+                    queue.get(message, gmo);
+                    String text = message.readString(message.getMessageLength());
+                    System.out.println("✅ Received: " + text);
+
+                } catch (MQException e) {
+                    if (e.reasonCode == CMQC.MQRC_NO_MSG_AVAILABLE) {
+                        System.out.println("No message yet, waiting...");
+                    } else {
+                        throw e;
+                    }
+                }
+            }
 
         } finally {
             if (queue != null) queue.close();
             if (qMgr != null) qMgr.disconnect();
-            System.out.println("Disconnected.");
         }
     }
 }
